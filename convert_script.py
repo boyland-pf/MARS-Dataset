@@ -34,11 +34,27 @@ def flatten(l):
 			res.append(x)
 	return res
 
+def isnonstring(s):
+	try:
+		int(s)
+		return True
+	except:
+		try:
+			float(s)
+			return True
+		except:
+			return False
+
+def table_to_string(t):
+	return '\n'.join([' '.join(line) for line in t])
+
 #standardizes all known whitespace - any number of tabs and spaces - into a single character
 def replace_whitespace(s):
 	res = []
 	prevwhite = True
 	for c in s:
+		if c in ["#"]:
+			continue
 		if c in [' ','\t']:
 			if not prevwhite:
 				prevwhite = True
@@ -74,7 +90,7 @@ def possibletable(x):
 		return False
 	(start,end,size) = max_features
 	best_section =  divide_lines[start:end]
-	# if countfile == 2:
+	# if countfile == 7:
 	# 	print("-------------------------------------")
 	# 	print('\n'.join(best_section))
 	return best_section
@@ -82,18 +98,31 @@ def possibletable(x):
 def spaceseptotable(t):
 	return [line.split(' ') for line in t]
 
+def addheader(t):
+	if any([isnonstring(s) for s in t[0]]):
+		t = [(["c"+str(x) for x in range(len(t[0]))])] + t
+	return t
+
 def clean_table(t):
+	t = addheader(t)
+	res = []
 	idxstolose = []
 	for i in range(len(t[0])):
 		if all([x[i]==t[1][i] for x in t[1:]]):
 			idxstolose.append(i)
-	res = []
+		if all([str(x[i])==str(j) for j,x in enumerate(t[1:])]):
+			idxstolose.append(i)
+		if all([str(x[i])==str(j+1) for j,x in enumerate(t[1:])]):
+			idxstolose.append(i)
+		if all([str(x[i])==str(j) for j,x in enumerate(t)]):
+			idxstolose.append(i)
 	for line in t:
 		lineres = []
 		for (i,x) in enumerate(line):
 			if i not in idxstolose:
 				lineres.append(x)
 		res.append(lineres)
+	res = addheader(res)
 	return res
 
 def likelytable(t):
@@ -105,17 +134,26 @@ def likelytable(t):
 
 #determines (based on a guess) whether one input can create the other
 def possibleinputoutput(inp,outp):
-	t1vs = set(flatten(inp))
-	t2vs = set(flatten(outp))
+	flat1 = flatten(inp)
+	flat2 = flatten(outp)
+	t1vs = set(flat1)
+	t2vs = set(flat2)
 
 	countintersect = 0
 	for x in t1vs:
 		if x in t2vs:
 			countintersect+=1
-	if countintersect > 1:
-		return (inp,outp)
 
-	return False
+	if countintersect <= 1:
+		return False
+
+	t1numintersect = sum([1 if x in t2vs else 0 for x in flat1])
+	t2numintersect = sum([1 if x in t1vs else 0 for x in flat2])
+
+	if len(flat1) - t1numintersect < 3 and len(flat2) - t2numintersect < 3:
+		return False
+
+	return (inp,outp)
 
 def findtable(post):
 	possible_tables = [possibletable(v) for l,v in post]
@@ -165,9 +203,9 @@ for post in flattened:
 	answers = post[2]
 	postarray = []
 	postarray += question
-	for answerdata in answers:
-		answer = answerdata["ansr"]
-		postarray += answer
+	# for answerdata in answers:
+	# 	answer = answerdata["ansr"]
+	# 	postarray += answer
 	cleaned.append((metadata["url"],postarray))
 urldict = dict(cleaned)
 
@@ -176,8 +214,6 @@ if not os.path.exists('newcsvs'):
 
 for url,v in cleaned:
 	csvfrompost(url,v)
-	# if countfile>=3:
-	# 	exit(0)
 
 # for url in ["https://stackoverflow.com"+cleaned[i][0] for i in range(8, 16)]:
 # 	print(url)
